@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Register - Cosmic Chat</title>
+
+<style>
+
+body{
+font-family: Arial;
+background:#0f0f0f;
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+.card{
+background:#1e1e1e;
+padding:30px;
+border-radius:10px;
+width:300px;
+text-align:center;
+}
+
+input{
+width:100%;
+padding:10px;
+margin:8px 0;
+border:none;
+border-radius:5px;
+}
+
+button{
+width:100%;
+padding:10px;
+background:#ffd700;
+border:none;
+border-radius:5px;
+font-weight:bold;
+cursor:pointer;
+}
+
+#otpSection{
+display:none;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>Cosmic Chat</h2>
+
+<div id="registerSection">
+
+<input id="username" placeholder="Username">
+
+<input id="email" placeholder="Email">
+
+<input id="password" type="password" placeholder="Password">
+
+<button onclick="register()">Register</button>
+
+</div>
+
+
+<div id="otpSection">
+
+<h3>Enter OTP</h3>
+
+<input id="otp" placeholder="OTP">
+
+<button onclick="verify()">Verify</button>
+
+</div>
+
+</div>
+
+
+<script>
+
+let savedUserId="";
+
+async function register(){
+
+const username=document.getElementById("username").value;
+const email=document.getElementById("email").value;
+const password=document.getElementById("password").value;
+
+if(!username || !email || !password){
+alert("Enter username, email and password");
+return;
+}
+
+const res = await fetch("/api/auth/register",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+username,
+email,
+password
+})
+});
+
+const data = await res.json();
+
+alert(data.message);
+
+if(res.ok){
+
+savedUserId = data.userId;
+
+document.getElementById("registerSection").style.display="none";
+document.getElementById("otpSection").style.display="block";
+
+}
+
+}
+
+
+async function verify(){
+
+const otp=document.getElementById("otp").value;
+
+if(!otp){
+alert("Enter OTP");
+return;
+}
+
+const res = await fetch("/api/auth/verify-otp",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+userId:savedUserId,
+otp
+})
+});
+
+const data = await res.json();
+
+alert(data.message);
+
+if(res.ok){
+window.location.href="/login.html";
+}
+
+}
+
+</script>
+
+</body>
+</html>
