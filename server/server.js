@@ -27,6 +27,9 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(cors()); // ✅ added
 app.use(express.static(path.join(__dirname, "../public")));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/splash.html"));
+});
 
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
