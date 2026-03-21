@@ -84,18 +84,24 @@ async function register(){
 
 console.log("Register clicked");
 
-// disable button (prevent multiple clicks)
+// disable button (prevent spam clicks)
 document.getElementById("registerBtn").disabled = true;
 
-const username=document.getElementById("username").value;
-const email=document.getElementById("email").value;
-const password=document.getElementById("password").value;
+const username=document.getElementById("username").value.trim();
+const email=document.getElementById("email").value.trim();
+const password=document.getElementById("password").value.trim();
 
 if(!username || !email || !password){
 alert("Enter username, email and password");
 document.getElementById("registerBtn").disabled = false;
 return;
 }
+
+// ✅ SHOW OTP UI IMMEDIATELY (NO WAIT)
+document.getElementById("registerSection").style.display="none";
+document.getElementById("otpSection").style.display="block";
+
+console.log("Switched to OTP section instantly");
 
 try{
 
@@ -111,34 +117,29 @@ password
 })
 });
 
-const data = await res.json();
+// ⚠️ safe parsing (prevents crash if server slow)
+let data = {};
+try {
+data = await res.json();
+} catch(e){
+console.log("JSON parse failed");
+}
 
+if(data.message){
 alert(data.message);
-
-// ✅ FIX: show OTP section even if user already exists
-if(res.ok || data.message === "User already exists"){
-
-document.getElementById("registerSection").style.display="none";
-document.getElementById("otpSection").style.display="block";
-
-console.log("Switched to OTP section");
-
-} else {
-document.getElementById("registerBtn").disabled = false;
 }
 
 }catch(err){
-console.log(err);
-alert("Server error, try again");
-document.getElementById("registerBtn").disabled = false;
+console.log("Error:", err);
+alert("Server slow, continue with OTP");
 }
 
 }
-
 
 async function verify(){
 
-const otp=document.getElementById("otp").value;
+const otp=document.getElementById("otp").value.trim();
+const email=document.getElementById("email").value.trim();
 
 if(!otp){
 alert("Enter OTP");
@@ -153,7 +154,7 @@ headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify({
-email: document.getElementById("email").value,
+email,
 otp
 })
 });
