@@ -54,7 +54,7 @@ async function decryptMessage(encryptedObj, room) {
   return new TextDecoder().decode(decrypted);
 }
 
-const socket = io();
+const socket = io("https://cosmic-chat.onrender.com");
 const username = localStorage.getItem("username");
 if (!username) window.location.href = "/login.html";
 
