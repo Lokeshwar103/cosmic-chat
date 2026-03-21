@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cosmic Chat Login</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+
+body{
+margin:0;
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+background:linear-gradient(135deg,#0b1220,#1e293b);
+font-family:system-ui;
+color:white;
+}
+
+/* CARD */
+
+.card{
+width:350px;
+background:#111c33;
+padding:30px;
+border-radius:16px;
+box-shadow:0 10px 40px rgba(0,0,0,0.5);
+}
+
+h2{
+text-align:center;
+margin-bottom:25px;
+}
+
+/* INPUTS */
+
+.input{
+width:100%;
+padding:12px;
+margin:10px 0;
+border-radius:10px;
+border:none;
+outline:none;
+background:#1f2a44;
+color:white;
+}
+
+/* PASSWORD WRAP */
+
+.passWrap{
+position:relative;
+}
+
+.eye{
+position:absolute;
+right:12px;
+top:50%;
+transform:translateY(-50%);
+cursor:pointer;
+font-size:14px;
+}
+
+/* BUTTON */
+
+.btn{
+width:100%;
+padding:12px;
+margin-top:15px;
+border:none;
+border-radius:10px;
+background:#22c55e;
+font-weight:bold;
+cursor:pointer;
+}
+
+/* MESSAGE */
+
+.msg{
+margin-top:12px;
+font-size:14px;
+text-align:center;
+color:#f87171;
+}
+
+.link{
+text-align:center;
+margin-top:15px;
+font-size:14px;
+}
+
+a{
+color:#3b82f6;
+text-decoration:none;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>💬 Cosmic Chat</h2>
+
+<input id="email" class="input" placeholder="Email">
+
+<div class="passWrap">
+<input id="password" type="password" class="input" placeholder="Password">
+<span class="eye" onclick="togglePass()">👁</span>
+</div>
+
+<button class="btn" onclick="login()">Login</button>
+
+<div id="msg" class="msg"></div>
+
+<div class="link">
+Don't have an account?  
+<a href="register.html">Register</a>
+</div>
+
+</div>
+
+<script>
+
+function togglePass(){
+const p=document.getElementById("password");
+p.type=p.type==="password"?"text":"password";
+}
+
+async function login(){
+
+const email=document.getElementById("email").value;
+const password=document.getElementById("password").value;
+const msg=document.getElementById("msg");
+
+msg.innerText="";
+
+try{
+
+const res=await fetch("/api/auth/login",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({email,password})
+});
+
+const data=await res.json();
+
+if(data.token){
+
+localStorage.setItem("token",data.token);
+localStorage.setItem("username",data.username);
+
+window.location.href="/chat.html";
+
+}else{
+
+msg.innerText=data.message || "Login failed";
+
+}
+
+}catch(err){
+
+msg.innerText="Server error";
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
