@@ -10,8 +10,8 @@ const nodemailer = require("nodemailer");
 const path = require("path");
 const cors = require("cors"); // ✅ added
 
-const User = require("../models/User");
-const Message = require("../models/Message");
+const User = require(__dirname + "/models/User");
+const Message = require(__dirname + "/models/Message");
 
 const app = express();
 const server = http.createServer(app);
