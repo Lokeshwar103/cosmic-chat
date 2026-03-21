@@ -8,19 +8,34 @@ const http = require("http");
 const { Server } = require("socket.io");
 const nodemailer = require("nodemailer");
 const path = require("path");
+const cors = require("cors"); // ✅ added
 
 const User = require("./models/User");
 const Message = require("./models/Message");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// ✅ FIXED Socket.IO CORS
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 app.use(express.json());
+app.use(cors()); // ✅ added
 app.use(express.static(path.join(__dirname, "../public")));
 
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// ✅ ENV safety check
+if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
+  console.log("❌ Missing environment variables");
+  process.exit(1);
+}
 
 // =======================
 // MongoDB Connection
