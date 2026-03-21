@@ -4,7 +4,6 @@
 <title>Register - Cosmic Chat</title>
 
 <style>
-
 body{
 font-family: Arial;
 background:#0f0f0f;
@@ -44,7 +43,6 @@ cursor:pointer;
 #otpSection{
 display:none;
 }
-
 </style>
 </head>
 
@@ -57,15 +55,12 @@ display:none;
 <div id="registerSection">
 
 <input id="username" placeholder="Username">
-
 <input id="email" placeholder="Email">
-
 <input id="password" type="password" placeholder="Password">
 
-<button onclick="register()">Register</button>
+<button onclick="register()" id="registerBtn">Register</button>
 
 </div>
-
 
 <div id="otpSection">
 
@@ -79,12 +74,16 @@ display:none;
 
 </div>
 
-
 <script>
 
 let savedUserId="";
 
 async function register(){
+
+console.log("Register clicked");
+
+// prevent multiple clicks
+document.getElementById("registerBtn").disabled = true;
 
 const username=document.getElementById("username").value;
 const email=document.getElementById("email").value;
@@ -92,10 +91,13 @@ const password=document.getElementById("password").value;
 
 if(!username || !email || !password){
 alert("Enter username, email and password");
+document.getElementById("registerBtn").disabled = false;
 return;
 }
 
-const res = await fetch("https://cosmic-chat-y27g.onrender.com/api/auth/register",{
+try {
+
+const res = await fetch("/api/auth/register",{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
@@ -115,9 +117,20 @@ if(res.ok){
 
 savedUserId = data.userId;
 
-document.getElementById("registerSection").style.display="none";
-document.getElementById("otpSection").style.display="block";
+// show OTP section
+document.getElementById("registerSection").style.display = "none";
+document.getElementById("otpSection").style.display = "block";
 
+console.log("Switched to OTP section");
+
+} else {
+document.getElementById("registerBtn").disabled = false;
+}
+
+} catch(err){
+console.log("Error:", err);
+alert("Server error, try again");
+document.getElementById("registerBtn").disabled = false;
 }
 
 }
@@ -132,7 +145,9 @@ alert("Enter OTP");
 return;
 }
 
-const res = await fetch("https://cosmic-chat-y27g.onrender.com/api/auth/verify",{
+try {
+
+const res = await fetch("/api/auth/verify",{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
@@ -149,6 +164,11 @@ alert(data.message);
 
 if(res.ok){
 window.location.href="/login.html";
+}
+
+} catch(err){
+console.log("Error:", err);
+alert("Verification failed");
 }
 
 }
