@@ -4,6 +4,7 @@
 <title>Register - Cosmic Chat</title>
 
 <style>
+
 body{
 font-family: Arial;
 background:#0f0f0f;
@@ -43,6 +44,7 @@ cursor:pointer;
 #otpSection{
 display:none;
 }
+
 </style>
 </head>
 
@@ -58,9 +60,10 @@ display:none;
 <input id="email" placeholder="Email">
 <input id="password" type="password" placeholder="Password">
 
-<button onclick="register()" id="registerBtn">Register</button>
+<button id="registerBtn" onclick="register()">Register</button>
 
 </div>
+
 
 <div id="otpSection">
 
@@ -74,15 +77,14 @@ display:none;
 
 </div>
 
-<script>
 
-let savedUserId="";
+<script>
 
 async function register(){
 
 console.log("Register clicked");
 
-// prevent multiple clicks
+// disable button (prevent multiple clicks)
 document.getElementById("registerBtn").disabled = true;
 
 const username=document.getElementById("username").value;
@@ -95,9 +97,9 @@ document.getElementById("registerBtn").disabled = false;
 return;
 }
 
-try {
+try{
 
-const res = await fetch("/api/auth/register",{
+const res = await fetch("https://cosmic-chat-y27g.onrender.com/api/auth/register",{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
@@ -113,13 +115,11 @@ const data = await res.json();
 
 alert(data.message);
 
-if(res.ok){
+// ✅ FIX: show OTP section even if user already exists
+if(res.ok || data.message === "User already exists"){
 
-savedUserId = data.userId;
-
-// show OTP section
-document.getElementById("registerSection").style.display = "none";
-document.getElementById("otpSection").style.display = "block";
+document.getElementById("registerSection").style.display="none";
+document.getElementById("otpSection").style.display="block";
 
 console.log("Switched to OTP section");
 
@@ -127,8 +127,8 @@ console.log("Switched to OTP section");
 document.getElementById("registerBtn").disabled = false;
 }
 
-} catch(err){
-console.log("Error:", err);
+}catch(err){
+console.log(err);
 alert("Server error, try again");
 document.getElementById("registerBtn").disabled = false;
 }
@@ -145,9 +145,9 @@ alert("Enter OTP");
 return;
 }
 
-try {
+try{
 
-const res = await fetch("/api/auth/verify",{
+const res = await fetch("https://cosmic-chat-y27g.onrender.com/api/auth/verify",{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
@@ -166,13 +166,14 @@ if(res.ok){
 window.location.href="/login.html";
 }
 
-} catch(err){
-console.log("Error:", err);
+}catch(err){
+console.log(err);
 alert("Verification failed");
 }
 
 }
 
 </script>
+
 </body>
 </html>
