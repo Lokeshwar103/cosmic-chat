@@ -108,7 +108,7 @@ app.post("/api/auth/register", async (req, res) => {
         console.log("🔁 OTP resent:", info.response);
 
       } catch (emailErr) {
-        console.log("❌ Email failed:", emailErr.message);
+        console.log("❌ Email failed:", emailErr);
         return res.status(500).json({ message: "Failed to send OTP" });
       }
 
