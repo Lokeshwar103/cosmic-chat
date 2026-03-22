@@ -8,16 +8,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const cors = require("cors");
-
-// ✅ Brevo API
-const SibApiV3Sdk = require("sib-api-v3-sdk");
-
-const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications["api-key"];
-apiKey.apiKey = process.env.BREVO_API_KEY;
-defaultClient.basePath = "https://api.brevo.com/v3";
-
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+const axios = require("axios");
 
 // Models
 const User = require(__dirname + "/models/User");
@@ -44,7 +35,7 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// ✅ ENV CHECK (UPDATED)
+// ✅ ENV CHECK
 if (
   !process.env.MONGO_URI ||
   !process.env.JWT_SECRET ||
@@ -63,10 +54,42 @@ mongoose
   .catch(err => console.log("❌ MongoDB Error:", err.message));
 
 // =======================
-// OTP
+// OTP GENERATOR
 // =======================
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// =======================
+// SEND OTP (FINAL FIX)
+// =======================
+async function sendOTP(email, otp) {
+  try {
+    await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: {
+          email: "cosmicchat10@gmail.com",
+          name: "Cosmic Chat"
+        },
+        to: [{ email: email }],
+        subject: "Cosmic Chat OTP Verification",
+        textContent: `Your OTP is: ${otp}`
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log("✅ OTP sent");
+
+  } catch (err) {
+    console.log("❌ Email error:", err.response?.data || err.message);
+    throw err;
+  }
 }
 
 // =======================
@@ -85,20 +108,8 @@ app.post("/api/auth/register", async (req, res) => {
       await user.save();
 
       try {
-        await apiInstance.sendTransacEmail({
-          sender: {
-            email: "cosmicchat10@gmail.com",
-            name: "Cosmic Chat"
-          },
-          to: [{ email: email }],
-          subject: "Cosmic Chat OTP Verification",
-          textContent: `Your OTP is: ${otp}`
-        });
-
-        console.log("🔁 OTP resent");
-
-      } catch (err) {
-        console.log("❌ Email error:", err);
+        await sendOTP(email, otp);
+      } catch {
         return res.status(500).json({ message: "Failed to send OTP" });
       }
 
@@ -119,20 +130,8 @@ app.post("/api/auth/register", async (req, res) => {
     await user.save();
 
     try {
-      await apiInstance.sendTransacEmail({
-        sender: {
-          email: "cosmicchat10@gmail.com",
-          name: "Cosmic Chat"
-        },
-        to: [{ email: email }],
-        subject: "Cosmic Chat OTP Verification",
-        textContent: `Your OTP is: ${otp}`
-      });
-
-      console.log("📩 OTP sent");
-
-    } catch (err) {
-      console.log("❌ Email error:", err);
+      await sendOTP(email, otp);
+    } catch {
       return res.status(500).json({ message: "Failed to send OTP" });
     }
 
@@ -190,7 +189,7 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 // =======================
-// SOCKET
+// SOCKET.IO
 // =======================
 let onlineUsers = {};
 
@@ -226,7 +225,7 @@ io.on("connection", socket => {
 });
 
 // =======================
-// START
+// START SERVER
 // =======================
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
