@@ -235,6 +235,6 @@ io.on("connection", socket => {
 // =======================
 // START
 // =======================
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
