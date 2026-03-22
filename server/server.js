@@ -99,7 +99,7 @@ app.post("/api/auth/register", async (req, res) => {
 
       try {
         const info = await transporter.sendMail({
-          from: process.env.EMAIL_USER,
+          from: "Cosmic Chat <no-reply@brevo.com>",
           to: email,
           subject: "Cosmic Chat OTP Verification",
           text: `Your OTP is: ${otp}`
