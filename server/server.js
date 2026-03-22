@@ -34,8 +34,13 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// ENV check
-if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
+// ✅ FIXED ENV CHECK
+if (
+  !process.env.MONGO_URI ||
+  !process.env.JWT_SECRET ||
+  !process.env.EMAIL_USER ||
+  !process.env.EMAIL_PASS
+) {
   console.log("❌ Missing environment variables");
   process.exit(1);
 }
@@ -53,15 +58,15 @@ mongoose
 // =======================
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  port: 465,
+  secure: true, // ✅ FIXED
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
   }
 });
 
-// check transporter
+// ✅ Check transporter
 transporter.verify((err, success) => {
   if (err) {
     console.log("❌ Email config error:", err.message);
@@ -89,18 +94,23 @@ app.post("/api/auth/register", async (req, res) => {
     const otp = generateOTP();
 
     if (user) {
-      // 🔥 resend OTP if user exists
       user.otp = otp;
       await user.save();
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: "Cosmic Chat OTP Verification",
-        text: `Your OTP is: ${otp}`
-      });
+      try {
+        const info = await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: "Cosmic Chat OTP Verification",
+          text: `Your OTP is: ${otp}`
+        });
 
-      console.log("🔁 OTP resent to existing user:", email);
+        console.log("🔁 OTP resent:", info.response);
+
+      } catch (emailErr) {
+        console.log("❌ Email failed:", emailErr.message);
+        return res.status(500).json({ message: "Failed to send OTP" });
+      }
 
       return res.json({ message: "OTP resent to your email" });
     }
@@ -117,14 +127,20 @@ app.post("/api/auth/register", async (req, res) => {
 
     await user.save();
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Cosmic Chat OTP Verification",
-      text: `Your OTP is: ${otp}`
-    });
+    try {
+      const info = await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Cosmic Chat OTP Verification",
+        text: `Your OTP is: ${otp}`
+      });
 
-    console.log("📩 OTP sent to:", email);
+      console.log("📩 OTP sent:", info.response);
+
+    } catch (emailErr) {
+      console.log("❌ Email failed:", emailErr.message);
+      return res.status(500).json({ message: "Failed to send OTP" });
+    }
 
     res.json({ message: "OTP sent to your email" });
 
