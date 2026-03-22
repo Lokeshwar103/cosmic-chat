@@ -6,10 +6,19 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const http = require("http");
 const { Server } = require("socket.io");
-const nodemailer = require("nodemailer");
 const path = require("path");
 const cors = require("cors");
 
+// ✅ Brevo API
+const SibApiV3Sdk = require("sib-api-v3-sdk");
+
+const defaultClient = SibApiV3Sdk.ApiClient.instance;
+const apiKey = defaultClient.authentications["api-key"];
+apiKey.apiKey = process.env.BREVO_API_KEY;
+
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+// Models
 const User = require(__dirname + "/models/User");
 const Message = require(__dirname + "/models/Message");
 
@@ -34,12 +43,11 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// ✅ FIXED ENV CHECK
+// ✅ ENV CHECK (UPDATED)
 if (
   !process.env.MONGO_URI ||
   !process.env.JWT_SECRET ||
-  !process.env.EMAIL_USER ||
-  !process.env.EMAIL_PASS
+  !process.env.BREVO_API_KEY
 ) {
   console.log("❌ Missing environment variables");
   process.exit(1);
@@ -52,28 +60,6 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.log("❌ MongoDB Error:", err.message));
-
-// =======================
-// EMAIL (FIXED)
-// =======================
-const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
-// ✅ Check transporter
-transporter.verify((err, success) => {
-  if (err) {
-    console.log("❌ Email config error:", err.message);
-  } else {
-    console.log("✅ Email server ready");
-  }
-});
 
 // =======================
 // OTP
@@ -90,31 +76,35 @@ app.post("/api/auth/register", async (req, res) => {
     const { username, email, password } = req.body;
 
     let user = await User.findOne({ email });
-
     const otp = generateOTP();
 
+    // ===== EXISTING USER =====
     if (user) {
       user.otp = otp;
       await user.save();
 
       try {
-        const info = await transporter.sendMail({
-          from: "Cosmic Chat <cosmicchat10@gmail.com>",
-          to: email,
+        await apiInstance.sendTransacEmail({
+          sender: {
+            email: "cosmicchat10@gmail.com",
+            name: "Cosmic Chat"
+          },
+          to: [{ email: email }],
           subject: "Cosmic Chat OTP Verification",
-          text: `Your OTP is: ${otp}`
+          textContent: `Your OTP is: ${otp}`
         });
 
-        console.log("🔁 OTP resent:", info.response);
+        console.log("🔁 OTP resent");
 
-      } catch (emailErr) {
-        console.log("❌ Email failed:", emailErr);
+      } catch (err) {
+        console.log("❌ Email error:", err);
         return res.status(500).json({ message: "Failed to send OTP" });
       }
 
       return res.json({ message: "OTP resent to your email" });
     }
 
+    // ===== NEW USER =====
     const hashed = await bcrypt.hash(password, 10);
 
     user = new User({
@@ -128,17 +118,20 @@ app.post("/api/auth/register", async (req, res) => {
     await user.save();
 
     try {
-      const info = await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
+      await apiInstance.sendTransacEmail({
+        sender: {
+          email: "cosmicchat10@gmail.com",
+          name: "Cosmic Chat"
+        },
+        to: [{ email: email }],
         subject: "Cosmic Chat OTP Verification",
-        text: `Your OTP is: ${otp}`
+        textContent: `Your OTP is: ${otp}`
       });
 
-      console.log("📩 OTP sent:", info.response);
+      console.log("📩 OTP sent");
 
-    } catch (emailErr) {
-      console.log("❌ Email failed:", emailErr.message);
+    } catch (err) {
+      console.log("❌ Email error:", err);
       return res.status(500).json({ message: "Failed to send OTP" });
     }
 
@@ -175,7 +168,6 @@ app.post("/api/auth/verify", async (req, res) => {
 // LOGIN
 // =======================
 app.post("/api/auth/login", async (req, res) => {
-
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
