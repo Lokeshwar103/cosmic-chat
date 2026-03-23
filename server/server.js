@@ -1,5 +1,4 @@
 require("dotenv").config();
-console.log("🚨 BREVO KEY CHECK:", process.env.BREVO_API_KEY);
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -36,12 +35,10 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// ✅ ENV CHECK
-if (
-  !process.env.MONGO_URI ||
-  !process.env.JWT_SECRET ||
-  !process.env.BREVO_API_KEY
-) {
+// =======================
+// ENV CHECK
+// =======================
+if (!process.env.MONGO_URI || !process.env.JWT_SECRET || !process.env.BREVO_API_KEY) {
   console.log("❌ Missing environment variables");
   process.exit(1);
 }
@@ -73,20 +70,20 @@ async function sendOTP(email, otp) {
           email: "cosmicchat10@gmail.com",
           name: "Cosmic Chat"
         },
-        to: [{ email: email }],
+        to: [{ email }],
         subject: "Cosmic Chat OTP Verification",
         textContent: `Your OTP is: ${otp}`
       },
       {
         headers: {
-          "api-key": process.env.BREVO_API_KEY,
+          "api-key": process.env.BREVO_API_KEY, // ✅ MUST be xkeysib
           "Content-Type": "application/json"
         }
       }
     );
-    console.log("API KEY:", process.env.BREVO_API_KEY);
-    console.log("✅ OTP sent");
-    console.log("🔥 BREVO KEY:", process.env.BREVO_API_KEY);
+
+    console.log("✅ OTP sent to:", email);
+
   } catch (err) {
     console.log("❌ Email error:", err.response?.data || err.message);
     throw err;
@@ -103,21 +100,18 @@ app.post("/api/auth/register", async (req, res) => {
     let user = await User.findOne({ email });
     const otp = generateOTP();
 
-    // ===== EXISTING USER =====
+    // EXISTING USER → RESEND OTP
     if (user) {
       user.otp = otp;
+      user.verified = false; // reset verification
       await user.save();
 
-      try {
-        await sendOTP(email, otp);
-      } catch {
-        return res.status(500).json({ message: "Failed to send OTP" });
-      }
+      await sendOTP(email, otp);
 
       return res.json({ message: "OTP resent to your email" });
     }
 
-    // ===== NEW USER =====
+    // NEW USER
     const hashed = await bcrypt.hash(password, 10);
 
     user = new User({
@@ -130,11 +124,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     await user.save();
 
-    try {
-      await sendOTP(email, otp);
-    } catch {
-      return res.status(500).json({ message: "Failed to send OTP" });
-    }
+    await sendOTP(email, otp);
 
     res.json({ message: "OTP sent to your email" });
 
@@ -145,48 +135,68 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 // =======================
-// VERIFY OTP
+// VERIFY OTP (FINAL FIX)
 // =======================
 app.post("/api/auth/verify", async (req, res) => {
-  const { email, otp } = req.body;
+  try {
+    const { email, otp } = req.body;
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
 
-  if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  if (user.otp !== otp)
-    return res.status(400).json({ message: "Invalid OTP" });
+    if (user.otp !== otp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
 
-  user.verified = true;
-  user.otp = null;
+    // ✅ CRITICAL FIX
+    user.verified = true;
+    user.otp = null;
 
-  await user.save();
+    await user.save();
 
-  res.json({ message: "Account verified" });
+    res.json({ message: "Account verified" });
+
+  } catch (err) {
+    console.log("❌ Verify error:", err.message);
+    res.status(500).json({ message: "Verification error" });
+  }
 });
 
 // =======================
 // LOGIN
 // =======================
 app.post("/api/auth/login", async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
 
-  if (!user)
-    return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-  if (!user.verified)
-    return res.status(400).json({ message: "Verify OTP first" });
+    if (!user.verified) {
+      return res.status(400).json({ message: "Verify OTP first" });
+    }
 
-  const valid = await bcrypt.compare(password, user.password);
+    const valid = await bcrypt.compare(password, user.password);
 
-  if (!valid)
-    return res.status(400).json({ message: "Wrong password" });
+    if (!valid) {
+      return res.status(400).json({ message: "Wrong password" });
+    }
 
-  const token = jwt.sign({ id: user._id }, JWT_SECRET);
+    const token = jwt.sign({ id: user._id }, JWT_SECRET);
 
-  res.json({ token, username: user.username });
+    res.json({
+      token,
+      username: user.username
+    });
+
+  } catch (err) {
+    console.log("❌ Login error:", err.message);
+    res.status(500).json({ message: "Login error" });
+  }
 });
 
 // =======================
