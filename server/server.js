@@ -59,7 +59,7 @@ function generateOTP() {
 }
 
 // =======================
-// SEND OTP (FINAL FIX)
+// SEND OTP
 // =======================
 async function sendOTP(email, otp) {
   try {
@@ -76,13 +76,13 @@ async function sendOTP(email, otp) {
       },
       {
         headers: {
-          "api-key": process.env.BREVO_API_KEY, // ✅ MUST be xkeysib
+          "api-key": process.env.BREVO_API_KEY,
           "Content-Type": "application/json"
         }
       }
     );
 
-    console.log("✅ OTP sent to:", email);
+    console.log("✅ OTP sent:", email);
 
   } catch (err) {
     console.log("❌ Email error:", err.response?.data || err.message);
@@ -100,10 +100,10 @@ app.post("/api/auth/register", async (req, res) => {
     let user = await User.findOne({ email });
     const otp = generateOTP();
 
-    // EXISTING USER → RESEND OTP
+    // EXISTING USER
     if (user) {
       user.otp = otp;
-      user.verified = false; // reset verification
+      user.isVerified = false;   // ✅ FIXED
       await user.save();
 
       await sendOTP(email, otp);
@@ -119,7 +119,7 @@ app.post("/api/auth/register", async (req, res) => {
       email,
       password: hashed,
       otp,
-      verified: false
+      isVerified: false   // ✅ FIXED
     });
 
     await user.save();
@@ -135,7 +135,7 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 // =======================
-// VERIFY OTP (FINAL FIX)
+// VERIFY OTP
 // =======================
 app.post("/api/auth/verify", async (req, res) => {
   try {
@@ -143,14 +143,14 @@ app.post("/api/auth/verify", async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user)
+      return res.status(404).json({ message: "User not found" });
 
-    if (user.otp !== otp) {
+    if (user.otp !== otp)
       return res.status(400).json({ message: "Invalid OTP" });
-    }
 
-    // ✅ CRITICAL FIX
-    user.verified = true;
+    // ✅ FIXED FIELD
+    user.isVerified = true;
     user.otp = null;
 
     await user.save();
@@ -172,19 +172,17 @@ app.post("/api/auth/login", async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    if (!user) {
+    if (!user)
       return res.status(404).json({ message: "User not found" });
-    }
 
-    if (!user.verified) {
+    // ✅ FIXED FIELD
+    if (!user.isVerified)
       return res.status(400).json({ message: "Verify OTP first" });
-    }
 
     const valid = await bcrypt.compare(password, user.password);
 
-    if (!valid) {
+    if (!valid)
       return res.status(400).json({ message: "Wrong password" });
-    }
 
     const token = jwt.sign({ id: user._id }, JWT_SECRET);
 
