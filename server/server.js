@@ -1,4 +1,5 @@
 require("dotenv").config();
+console.log("🚨 BREVO KEY CHECK:", process.env.BREVO_API_KEY);
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -83,9 +84,9 @@ async function sendOTP(email, otp) {
         }
       }
     );
-
+    console.log("API KEY:", process.env.BREVO_API_KEY);
     console.log("✅ OTP sent");
-
+    console.log("🔥 BREVO KEY:", process.env.BREVO_API_KEY);
   } catch (err) {
     console.log("❌ Email error:", err.response?.data || err.message);
     throw err;
