@@ -240,8 +240,6 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
 
-const axios = require("axios");
-
 setInterval(() => {
   axios.get("https://cosmic-chat-y27g.onrender.com")
     .then(() => console.log("🔄 Self ping"))
