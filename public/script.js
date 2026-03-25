@@ -81,12 +81,21 @@ messageInput.addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
 
+// ✅ TYPING EMIT
+messageInput.addEventListener("input", () => {
+  if (currentChat === "private" && selectedUser) {
+    socket.emit("typing", {
+      sender: username,
+      receiver: selectedUser
+    });
+  }
+});
+
 async function sendMessage() {
 
   const text = messageInput.value.trim();
   if (!text) return;
 
-  // ✅ FIX 1: clear input FIRST
   messageInput.value = "";
 
   if (currentChat === "group") {
@@ -108,12 +117,6 @@ async function sendMessage() {
       text: JSON.stringify(encrypted)
     });
   }
-
-  // ✅ FIX: show instantly
-  addMessage({
-    sender: username,
-    text
-  });
 }
 
 // ================= USERS =================
@@ -136,7 +139,6 @@ socket.on("online_users", users => {
       <span class="unreadBadge" id="badge_${user}" style="display:${badgeCount ? "inline-block":"none"}">${badgeCount}</span>
     `;
 
-    // ✅ FIX 2: DIRECT OPEN PRIVATE CHAT
     li.onclick = () => {
 
       unread[user] = 0;
@@ -168,7 +170,6 @@ socket.on("receive_group_message", msg => {
 // ================= RECEIVE PRIVATE =================
 socket.on("receive_private_message", async msg => {
 
-  // unread counter
   if (currentChat !== "private" || selectedUser !== msg.sender) {
 
     unread[msg.sender] = (unread[msg.sender] || 0) + 1;
@@ -185,10 +186,30 @@ socket.on("receive_private_message", async msg => {
   const room = [username, selectedUser].sort().join("_");
 
   try {
-    // ✅ FIX 3: decrypt properly
     msg.text = await decryptMessage(JSON.parse(msg.text), room);
     addMessage(msg);
   } catch {}
+});
+
+// ================= TYPING RECEIVE =================
+socket.on("user_typing", user => {
+
+  if (currentChat !== "private") return;
+  if (user !== selectedUser) return;
+
+  typingStatus.innerHTML = `${user} is typing...`;
+
+  clearTimeout(typingTimer);
+
+  typingTimer = setTimeout(() => {
+    typingStatus.innerHTML = "";
+  }, 1500);
+});
+
+// ================= DELETE =================
+socket.on("message_deleted", id => {
+  const el = document.getElementById(id);
+  if (el) el.remove();
 });
 
 // ================= ADD MESSAGE =================
@@ -196,11 +217,27 @@ function addMessage(msg) {
 
   const row = document.createElement("div");
   row.className = "msgRow " + (msg.sender === username ? "me" : "other");
+  row.id = msg._id;
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
 
-  bubble.innerHTML = `<div>${msg.text}</div>`;
+  bubble.innerHTML = `
+    <div>${msg.text}</div>
+    ${
+      msg.sender === username
+        ? `<span class="deleteBtn" style="color:red;cursor:pointer;">🗑</span>`
+        : ""
+    }
+  `;
+
+  const deleteBtn = bubble.querySelector(".deleteBtn");
+
+  if (deleteBtn) {
+    deleteBtn.onclick = () => {
+      socket.emit("delete_message", { messageId: msg._id });
+    };
+  }
 
   row.appendChild(bubble);
   chatBox.appendChild(row);
@@ -208,7 +245,7 @@ function addMessage(msg) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// ================= GROUP BUTTON =================
+// ================= GROUP =================
 function goGroup() {
 
   currentChat = "group";

@@ -175,7 +175,7 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 // =======================
-// SOCKET.IO (FINAL FIX)
+// SOCKET.IO (FINAL)
 // =======================
 let onlineUsers = {};
 
@@ -187,7 +187,6 @@ io.on("connection", (socket) => {
 
     io.emit("online_users", Object.keys(onlineUsers));
 
-    // ✅ load group messages
     const msgs = await Message.find({ receiver: null }).sort({ createdAt: 1 });
     socket.emit("load_group_messages", msgs);
   });
@@ -195,9 +194,7 @@ io.on("connection", (socket) => {
   // ================= GROUP =================
   socket.on("send_group_message", async ({ sender, text }) => {
 
-    // ✅ CRITICAL FIX
     const msg = new Message({ sender, text, receiver: null });
-
     await msg.save();
 
     io.emit("receive_group_message", msg);
@@ -207,17 +204,14 @@ io.on("connection", (socket) => {
   socket.on("send_private_message", async ({ sender, receiver, text }) => {
 
     const msg = new Message({ sender, receiver, text });
-
     await msg.save();
 
     const target = onlineUsers[receiver];
 
-    // send to receiver
     if (target) {
       io.to(target).emit("receive_private_message", msg);
     }
 
-    // send back to sender
     socket.emit("receive_private_message", msg);
   });
 
@@ -232,6 +226,30 @@ io.on("connection", (socket) => {
     }).sort({ createdAt: 1 });
 
     socket.emit("load_private_messages", msgs);
+  });
+    // ================= TYPING =================
+  socket.on("typing", ({ sender, receiver }) => {
+
+  const target = onlineUsers[receiver];
+
+  if (target) {
+    io.to(target).emit("user_typing", sender);
+  }
+
+  }); 
+
+  // ================= DELETE MESSAGE =================
+  socket.on("delete_message", async ({ messageId }) => {
+
+    try {
+      await Message.findByIdAndDelete(messageId);
+
+      // broadcast delete to all users
+      io.emit("message_deleted", messageId);
+
+    } catch (err) {
+      console.log("Delete error:", err.message);
+    }
   });
 
   // ================= DISCONNECT =================
