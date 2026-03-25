@@ -52,15 +52,12 @@ mongoose
   .catch(err => console.log("❌ MongoDB Error:", err.message));
 
 // =======================
-// OTP GENERATOR
+// OTP
 // =======================
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// =======================
-// SEND OTP
-// =======================
 async function sendOTP(email, otp) {
   try {
     await axios.post(
@@ -100,18 +97,15 @@ app.post("/api/auth/register", async (req, res) => {
     let user = await User.findOne({ email });
     const otp = generateOTP();
 
-    // EXISTING USER
     if (user) {
       user.otp = otp;
-      user.isVerified = false;   // ✅ FIXED
+      user.isVerified = false;
       await user.save();
 
       await sendOTP(email, otp);
-
-      return res.json({ message: "OTP resent to your email" });
+      return res.json({ message: "OTP resent" });
     }
 
-    // NEW USER
     const hashed = await bcrypt.hash(password, 10);
 
     user = new User({
@@ -119,17 +113,15 @@ app.post("/api/auth/register", async (req, res) => {
       email,
       password: hashed,
       otp,
-      isVerified: false   // ✅ FIXED
+      isVerified: false
     });
 
     await user.save();
-
     await sendOTP(email, otp);
 
-    res.json({ message: "OTP sent to your email" });
+    res.json({ message: "OTP sent" });
 
   } catch (err) {
-    console.log("❌ Register error:", err.message);
     res.status(500).json({ message: "Registration error" });
   }
 });
@@ -143,13 +135,9 @@ app.post("/api/auth/verify", async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    if (!user)
-      return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
 
-    if (user.otp !== otp)
-      return res.status(400).json({ message: "Invalid OTP" });
-
-    // ✅ FIXED FIELD
     user.isVerified = true;
     user.otp = null;
 
@@ -157,8 +145,7 @@ app.post("/api/auth/verify", async (req, res) => {
 
     res.json({ message: "Account verified" });
 
-  } catch (err) {
-    console.log("❌ Verify error:", err.message);
+  } catch {
     res.status(500).json({ message: "Verification error" });
   }
 });
@@ -172,76 +159,63 @@ app.post("/api/auth/login", async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    if (!user)
-      return res.status(404).json({ message: "User not found" });
-
-    // ✅ FIXED FIELD
-    if (!user.isVerified)
-      return res.status(400).json({ message: "Verify OTP first" });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user.isVerified) return res.status(400).json({ message: "Verify OTP first" });
 
     const valid = await bcrypt.compare(password, user.password);
-
-    if (!valid)
-      return res.status(400).json({ message: "Wrong password" });
+    if (!valid) return res.status(400).json({ message: "Wrong password" });
 
     const token = jwt.sign({ id: user._id }, JWT_SECRET);
 
-    res.json({
-      token,
-      username: user.username
-    });
+    res.json({ token, username: user.username });
 
-  } catch (err) {
-    console.log("❌ Login error:", err.message);
+  } catch {
     res.status(500).json({ message: "Login error" });
   }
 });
 
 // =======================
-// SOCKET.IO
+// SOCKET.IO (FINAL FIX)
 // =======================
 let onlineUsers = {};
 
-io.on("connection", socket => {
+io.on("connection", (socket) => {
 
-  socket.on("join", username => {
+  socket.on("join", (username) => {
     onlineUsers[username] = socket.id;
-    io.emit("onlineUsers", Object.keys(onlineUsers));
+    io.emit("online_users", Object.keys(onlineUsers));
   });
 
-  socket.on("sendMessage", async data => {
-    const msg = new Message(data);
+  socket.on("send_group_message", async ({ sender, text }) => {
+
+    const msg = new Message({ sender, text });
     await msg.save();
-    io.emit("receiveMessage", data);
+
+    io.emit("receive_group_message", msg);
   });
 
-  socket.on("privateMessage", data => {
-    const targetSocket = onlineUsers[data.to];
-    if (targetSocket) {
-      io.to(targetSocket).emit("receivePrivate", data);
-    }
+  socket.on("send_private_message", async ({ sender, receiver, text }) => {
+
+    const msg = new Message({ sender, receiver, text });
+    await msg.save();
+
+    const target = onlineUsers[receiver];
+
+    if (target) io.to(target).emit("receive_private_message", msg);
+
+    socket.emit("receive_private_message", msg);
   });
 
   socket.on("disconnect", () => {
     for (let user in onlineUsers) {
-      if (onlineUsers[user] === socket.id) {
-        delete onlineUsers[user];
-      }
+      if (onlineUsers[user] === socket.id) delete onlineUsers[user];
     }
-    io.emit("onlineUsers", Object.keys(onlineUsers));
+    io.emit("online_users", Object.keys(onlineUsers));
   });
 
 });
 
 // =======================
-// START SERVER
-// =======================
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log("🚀 Server running on", PORT);
 });
-
-setInterval(() => {
-  axios.get("https://cosmic-chat-y27g.onrender.com")
-    .then(() => console.log("🔄 Self ping"))
-    .catch(() => console.log("Ping failed"));
-}, 300000); // every 5 min

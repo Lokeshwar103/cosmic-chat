@@ -124,8 +124,13 @@ async function sendMessage() {
 
   }
 
-  messageInput.value = "";
+  // ✅ FIX: message not disappearing
+  addMessage({
+    sender: username,
+    text
+  });
 
+  messageInput.value = "";
 }
 
 
