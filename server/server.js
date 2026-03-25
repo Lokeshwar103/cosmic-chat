@@ -181,35 +181,68 @@ let onlineUsers = {};
 
 io.on("connection", (socket) => {
 
-  socket.on("join", (username) => {
+  socket.on("join", async (username) => {
+
     onlineUsers[username] = socket.id;
+
     io.emit("online_users", Object.keys(onlineUsers));
+
+    // ✅ load group messages
+    const msgs = await Message.find({ receiver: null }).sort({ createdAt: 1 });
+    socket.emit("load_group_messages", msgs);
   });
 
+  // ================= GROUP =================
   socket.on("send_group_message", async ({ sender, text }) => {
 
-    const msg = new Message({ sender, text });
+    // ✅ CRITICAL FIX
+    const msg = new Message({ sender, text, receiver: null });
+
     await msg.save();
 
     io.emit("receive_group_message", msg);
   });
 
+  // ================= PRIVATE =================
   socket.on("send_private_message", async ({ sender, receiver, text }) => {
 
     const msg = new Message({ sender, receiver, text });
+
     await msg.save();
 
     const target = onlineUsers[receiver];
 
-    if (target) io.to(target).emit("receive_private_message", msg);
+    // send to receiver
+    if (target) {
+      io.to(target).emit("receive_private_message", msg);
+    }
 
+    // send back to sender
     socket.emit("receive_private_message", msg);
   });
 
+  // ================= LOAD PRIVATE =================
+  socket.on("join_private", async ({ sender, receiver }) => {
+
+    const msgs = await Message.find({
+      $or: [
+        { sender, receiver },
+        { sender: receiver, receiver: sender }
+      ]
+    }).sort({ createdAt: 1 });
+
+    socket.emit("load_private_messages", msgs);
+  });
+
+  // ================= DISCONNECT =================
   socket.on("disconnect", () => {
+
     for (let user in onlineUsers) {
-      if (onlineUsers[user] === socket.id) delete onlineUsers[user];
+      if (onlineUsers[user] === socket.id) {
+        delete onlineUsers[user];
+      }
     }
+
     io.emit("online_users", Object.keys(onlineUsers));
   });
 
