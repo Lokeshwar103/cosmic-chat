@@ -256,3 +256,32 @@ function goGroup() {
 
   socket.emit("join", username);
 }
+// ================= VIEW TOGGLE =================
+const viewBtn = document.getElementById("viewBtn");
+
+// load saved view
+const savedView = localStorage.getItem("viewMode");
+
+if (savedView === "mobile") {
+  document.body.classList.add("mobile-mode");
+  viewBtn.innerText = "🖥 Desktop View";
+} else {
+  document.body.classList.add("desktop-mode");
+  viewBtn.innerText = "📱 Mobile View";
+}
+
+function toggleView() {
+  if (document.body.classList.contains("mobile-mode")) {
+    document.body.classList.remove("mobile-mode");
+    document.body.classList.add("desktop-mode");
+
+    localStorage.setItem("viewMode", "desktop");
+    viewBtn.innerText = "📱 Mobile View";
+  } else {
+    document.body.classList.remove("desktop-mode");
+    document.body.classList.add("mobile-mode");
+
+    localStorage.setItem("viewMode", "mobile");
+    viewBtn.innerText = "🖥 Desktop View";
+  }
+}
